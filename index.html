@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tønder-logbog</title>
+<meta name="theme-color" content="#1d6a50">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Logbog">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+html{color-scheme:light dark;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+
+/* Layout: smal kolonne til telefonen – dashboard øverst, så ugekalenderen; redigering i ark nedefra */
+:root{
+  --bg:#eef2f0; --surface:#ffffff; --fg:#16201c; --muted:#5b6a64; --faint:#8a9792; --line:#d5ddd9;
+  --accent:#1d6a50; --accent-ink:#ffffff; --accent-soft:#d6e9e0; --accent-mid:#8cbfa9;
+  --off:#e4e7e5; --warn:#9a5600; --warn-soft:#f6ead9; --danger:#b3261e;
+  --sans:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1513; --surface:#171f1c; --fg:#e4ebe8; --muted:#91a199; --faint:#66746e; --line:#28332f;
+  --accent:#5cbd96; --accent-ink:#0b1411; --accent-soft:#1c3328; --accent-mid:#3d7a61;
+  --off:#222a27; --warn:#e3a650; --warn-soft:#2e2414; --danger:#f0887e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1513; --surface:#171f1c; --fg:#e4ebe8; --muted:#91a199; --faint:#66746e; --line:#28332f;
+  --accent:#5cbd96; --accent-ink:#0b1411; --accent-soft:#1c3328; --accent-mid:#3d7a61;
+  --off:#222a27; --warn:#e3a650; --warn-soft:#2e2414; --danger:#f0887e; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.45}
+.wrap{max-width:640px;margin:0 auto;padding-block:20px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:22px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13px;margin:2px 0 0}
+.years{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:500 13px var(--mono);border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:4px 10px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 8px;font-weight:600}
+.note{font-size:13px;color:var(--muted)}
+.warn{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* dashboard */
+.dash{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:16px}
+.hero{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:flex-end}
+.hero .k{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.hero .big{font:500 34px/1.1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.hero .mid{font:500 20px/1.2 var(--mono);font-variant-numeric:tabular-nums;color:var(--muted)}
+.hero .s{font-size:13px;color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-top:1px solid var(--line);padding-top:12px}
+.kpis>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpis .k{font-size:12px;color:var(--muted)}
+.kpis .v{font:500 16px var(--mono);font-variant-numeric:tabular-nums}
+@media (max-width:460px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.meter{display:flex;flex-direction:column;gap:6px}
+.meter .top{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
+.track{position:relative;height:10px;background:var(--off);border-radius:5px;overflow:hidden}
+.track i{position:absolute;top:0;bottom:0;left:0;border-radius:5px}
+.track .p{background:repeating-linear-gradient(135deg,var(--accent-mid) 0 3px,transparent 3px 6px)}
+.track .r{background:var(--accent)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.sw.r{background:var(--accent)} .sw.p{background:repeating-linear-gradient(135deg,var(--accent-mid) 0 2px,var(--accent-soft) 2px 4px)}
+.chart{position:relative}
+.chart svg{width:100%;height:auto;display:block;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--bg);font-size:12px;border-radius:8px;padding:8px 10px;white-space:nowrap;transform:translate(-50%,-100%);z-index:2}
+.tip b{font-family:var(--mono);font-weight:500}
+
+/* knapper */
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:600 14px var(--sans);border-radius:10px;padding:10px 14px;border:1px solid var(--line);cursor:pointer;background:var(--surface);color:var(--fg)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-size:16px;padding:13px 16px}
+.btn.danger{color:var(--danger);border-color:var(--danger);background:transparent}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* kalender */
+.cal{display:flex;flex-direction:column;gap:6px}
+.mh{font-size:13px;font-weight:700;margin:12px 0 2px;display:flex;justify-content:space-between;align-items:baseline}
+.mh:first-child{margin-top:0}
+.mh .num{font-weight:500;color:var(--muted);font-size:12px}
+.wk{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px 10px;display:flex;flex-direction:column;gap:6px;cursor:pointer;text-align:left;color:inherit;font:inherit;width:100%}
+.wk.now{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.wk.out{opacity:.55}
+.wkh{display:flex;align-items:baseline;gap:8px;font-size:13px}
+.wkh .n{font-weight:700;min-width:3.6em}
+.wkh .d{color:var(--muted);flex:1;min-width:0}
+.wkh .amt{font:500 13px var(--mono);font-variant-numeric:tabular-nums}
+.tag{font-size:11px;font-weight:600;border-radius:999px;padding:1px 8px;background:var(--off);color:var(--muted);white-space:nowrap}
+.tag.std{background:var(--accent-soft);color:var(--accent)}
+.tag.edit{background:var(--fg);color:var(--bg)}
+.tag.per{background:var(--warn-soft);color:var(--warn)}
+.tag.plan{background:transparent;border:1px dashed var(--line)}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.dy{border-radius:7px;background:var(--bg);padding:4px 2px 5px;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:44px;min-width:0}
+.dy .dn{font:500 12px var(--mono)}
+.dy .dw{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
+.dy .t{font:10px var(--mono);color:var(--accent)}
+.dy.away{background:var(--accent-soft)}
+.dy.away.plan{background:repeating-linear-gradient(135deg,var(--accent-soft) 0 4px,var(--surface) 4px 8px)}
+.dy.hol .dn{color:var(--warn)}
+.dy.offd{background:var(--off)}
+.dots{display:flex;gap:2px}
+.dots i{width:5px;height:5px;border-radius:50%;border:1px solid var(--accent);box-sizing:border-box}
+.dots i.f{background:var(--accent)}
+
+/* ark */
+.sheet{position:fixed;inset:0;background:rgba(10,16,14,.5);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.panel{background:var(--surface);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;
+  padding:18px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
+.panel h3{margin:0;font-size:18px}
+.panel h4{margin:6px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 130px;min-width:0}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+input,select{font:16px var(--sans);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;box-sizing:border-box;min-width:0}
+.check{flex-direction:row;align-items:center;gap:8px;color:var(--fg);font-size:14px}
+.check input{width:20px;height:20px}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;font:600 14px var(--sans);padding:9px;border:0;background:var(--surface);color:var(--fg);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.meals{display:flex;flex-direction:column;gap:4px}
+.mrow{display:grid;grid-template-columns:1fr repeat(3,minmax(0,74px));gap:6px;align-items:center}
+.mrow .lbl{font-size:14px}
+.mrow .lbl small{color:var(--muted);font-family:var(--mono)}
+.mh2{font-size:11px;color:var(--muted);text-align:center;text-transform:uppercase;letter-spacing:.05em}
+.mt{font:600 13px var(--sans);border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:8px;padding:9px 0;cursor:pointer}
+.mt[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.calc{font:13px var(--mono);font-variant-numeric:tabular-nums;background:var(--bg);border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:1fr auto;gap:3px 12px}
+.calc .t{border-top:1px solid var(--line);padding-top:4px;color:var(--fg);font-weight:500}
+.ytab{overflow-x:auto}
+.ytab table{border-collapse:collapse;font-size:13px;min-width:560px}
+.ytab th{text-align:left;font-weight:600;color:var(--muted);padding:4px 6px;font-size:12px}
+.ytab td{padding:3px 4px}
+.ytab td input{padding:7px 6px;font:14px var(--mono)}
+.ytab td:first-child{font:600 14px var(--mono);padding-right:8px}
+.focus{display:flex;flex-direction:column;gap:8px}
+.focus:empty{display:none}
+.fh{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.fh h2{margin:0}
+.nav{display:flex;gap:6px}
+.nav .btn{padding:6px 14px;font-size:15px}
+.foot{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;z-index:30;max-width:90vw}
+@media (prefers-reduced-motion: no-preference){.panel{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
+
+.saved{font-size:12px;color:var(--muted)}
+.saved.err{color:var(--danger);font-weight:600}
+.banner{background:var(--warn-soft);color:var(--warn);border-radius:12px;padding:12px 14px;font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.onb{display:flex;flex-direction:column;gap:12px}
+.row.dt>*{flex-basis:220px}
+.sheethead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="title">Tønder-logbog</h1>
+      <p class="sub" id="subtitle">Aarhus ⇄ Tønder · befordring og rejsefradrag</p>
+    </div>
+    <div class="years" id="years"></div>
+  </header>
+
+  <div class="banner" id="bakBanner" hidden><span id="bakText"></span><button class="btn" id="bakNow">Gem backup nu</button></div>
+
+  <section class="dash" id="dash"></section>
+  <section class="focus" id="focus"></section>
+
+  <div class="actions" id="mainActions">
+    <button class="btn" id="bPeriod">+ Periode eller ferie</button>
+    <button class="btn" id="bTrip">+ Enkelt tur</button>
+    <button class="btn" id="bSettings">Indstillinger og satser</button>
+  </div>
+
+  <section id="calSec">
+    <h2 id="calTitle">Kalender</h2>
+    <div class="cal" id="cal"></div>
+  </section>
+
+  <section>
+    <h2>Eksport og backup</h2>
+    <div class="note" style="margin-bottom:8px">Alt gemmes automatisk på denne enhed. Gem en backup i Google Drive en gang imellem, så du kan flytte logbogen til en ny telefon.</div>
+    <div class="actions">
+      <button class="btn" id="bCsv">CSV til årsopgørelsen</button>
+      <button class="btn" id="bCopy">Kopiér som tabel</button>
+      <button class="btn" id="bBak">Gem backup</button>
+      <label class="btn" for="bRes" style="flex-direction:row;color:var(--fg);font-size:14px">Indlæs backup<input type="file" id="bRes" accept=".json,application/json"></label>
+    </div>
+    <p class="saved" id="lastBak"></p>
+  </section>
+
+  <div class="foot">
+    <span>Hver uge fyldes ud med standardturen fra Indstillinger. Tryk på en uge for at rette tider, transport og gratis måltider eller melde ferie. Fremtidige uger er skraveret og tæller kun med i prognosen.</span>
+    <span>Befordring: én tur ud og hjem er én kørselsdag med ét bundfradrag på 24 km, uanset om du kører selv, er passager eller tager tog. Intet befordringsfradrag, hvis arbejdsgiveren betaler transporten. Kost: døgnsats plus 1/24 pr. påbegyndt time, kun ved ture på mindst 24 timer og højst 12 måneder fra projektstart. Gratis måltider trækker 15 % (morgenmad) eller 30 % (frokost, aftensmad) af døgnsatsen.</span>
+    <span>Data ligger kun på denne enhed og sendes ingen steder hen. Version <span id="ver"></span>.</span>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" hidden><div class="panel" id="panel"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const APP_VERSION='2026.11.09-2';
+/* ---------- hjælpere ---------- */
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,'0');
+const P=s=>new Date(s);
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const loc=d=>`${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const at=(d,hm)=>{const x=new Date(d);const [h,m]=(hm||'00:00').split(':');x.setHours(+h,+m,0,0);return x};
+const mon=d=>{const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x};
+function isoWeek(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);
+  const y=t.getUTCFullYear();const w=Math.ceil(((t-Date.UTC(y,0,1))/864e5+1)/7);return{y,w,key:`${y}-W${pad(w)}`}}
+const MON=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+const MONL=['Januar','Februar','Marts','April','Maj','Juni','Juli','August','September','Oktober','November','December'];
+const DOW=['man','tir','ons','tor','fre','lør','søn'];
+const DOWL=['Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag','Søndag'];
+const TRANSPORT={bil:'Egen bil',passager:'Passager i en andens bil',offentlig:'Tog eller bus',arbejdsgiver:'Arbejdsgiveren betalte transporten'};
+const dow=d=>(d.getDay()+6)%7;
+const kr0=n=>new Intl.NumberFormat('da-DK',{maximumFractionDigits:0}).format(Math.round(n));
+const kr2=n=>new Intl.NumberFormat('da-DK',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
+const dshort=d=>`${d.getDate()}. ${MON[d.getMonth()]}`;
+const dlong=d=>`${d.getDate()}. ${MON[d.getMonth()]} ${d.getFullYear()}`;
+const hm=d=>`${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const esc=s=>{const e=document.createElement('div');e.textContent=s==null?'':String(s);return e.innerHTML};
+const uid=()=>'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2800)}
+const now=()=>new Date();
+
+/* danske helligdage */
+const holCache={};
+function holidays(y){if(holCache[y])return holCache[y];
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;
+  const E=new Date(y,mo-1,da),o={};const add=(dt,n)=>o[ymd(dt)]=n;
+  add(new Date(y,0,1),'Nytårsdag');add(addD(E,-3),'Skærtorsdag');add(addD(E,-2),'Langfredag');add(E,'Påskedag');add(addD(E,1),'2. påskedag');
+  add(addD(E,39),'Kr. himmelfartsdag');add(addD(E,49),'Pinsedag');add(addD(E,50),'2. pinsedag');add(new Date(y,5,5),'Grundlovsdag');
+  add(new Date(y,11,24),'Juleaften');add(new Date(y,11,25),'Juledag');add(new Date(y,11,26),'2. juledag');add(new Date(y,11,31),'Nytårsaften');
+  return holCache[y]=o}
+const holName=d=>holidays(d.getFullYear())[ymd(d)];
+
+/* ---------- lagring på enheden ---------- */
+const KEY='toender-logbog';
+const DEFAULT_YEARS={
+  2026:{kost:625,logi:268,loft:34400,kmHi:3.17,kmLo:1.59,prelim:''},
+  2027:{kost:643,logi:268,loft:35400,kmHi:2.28,kmLo:1.14,prelim:'Km-satser og logi er 2026-niveau uden den midlertidige forhøjelse – ret, når Skatterådet har meldt 2027 ud.'}
+};
+function blank(){return{app:'toender-logbog',format:2,name:'',settings:null,years:JSON.parse(JSON.stringify(DEFAULT_YEARS)),trips:{},weeks:{},lastBackup:null,updated:null}}
+function daysOf(s,e){const out=[];let d=new Date(s);d.setHours(0,0,0,0);const end=new Date(e);end.setHours(0,0,0,0);while(d<=end){out.push(ymd(d));d=addD(d,1)}return out}
+function normTrip(t){const fix=v=>{if(!v||typeof v!=='string')return v;if(v.length>16||/Z$/.test(v)){const d=new Date(v);return isNaN(d)?v:loc(d)}return v};
+  const o={...t,start:fix(t.start),end:fix(t.end)};if(!o.kind)o.kind='manuel';if(!o.transport)o.transport='bil';
+  if(!o.meals){o.meals={};if(o.start&&o.end){const ks=daysOf(P(o.start),P(o.end));
+    ['bf','lu','di'].forEach(x=>{let n=+t[x]||0;ks.forEach(k=>{o.meals[k]=o.meals[k]||{bf:false,lu:false,di:false};if(n>0){o.meals[k][x]=true;n--}})})}}
+  delete o.bf;delete o.lu;delete o.di;delete o.updated;return o}
+function migrate(d){const o=blank();if(!d||typeof d!=='object')return o;
+  o.name=d.name||'';o.lastBackup=d.lastBackup||null;
+  if(d.settings){o.settings={...d.settings};delete o.settings.name;if(!o.settings.tpl)o.settings.tpl={};if(!o.settings.tpl.transport)o.settings.tpl.transport='bil';if(o.settings.taxPct==null)o.settings.taxPct=25.5;if(d.settings.name&&!o.name)o.name=d.settings.name}
+  if(d.years)for(const y in d.years){const r={...d.years[y]};delete r.year;if(r.taxPct!=null&&o.settings&&o.settings.taxPct==null)o.settings.taxPct=r.taxPct;delete r.taxPct;o.years[y]=r}
+  const tl=Array.isArray(d.trips)?d.trips:Object.entries(d.trips||{}).map(([id,t])=>({id,...t}));
+  tl.forEach(t=>{if(!t.id)t.id=uid();o.trips[t.id]=normTrip(t)});
+  o.weeks={...(d.weeks||{})};return o}
+let D;try{const raw=localStorage.getItem(KEY);D=raw?migrate(JSON.parse(raw)):blank()}catch(e){D=blank()}
+let storageOk=true,saveT=null;
+function writeNow(){clearTimeout(saveT);saveT=null;try{D.updated=loc(now());localStorage.setItem(KEY,JSON.stringify(D));storageOk=true;setSaved('Gemt')}catch(e){storageOk=false;setSaved('Kunne ikke gemme på enheden',true)}}
+function commit(){clearTimeout(saveT);saveT=setTimeout(writeNow,250);setSaved('Gemmer …');render()}
+function setSaved(t,err){const el=$('svState');if(el){el.textContent=t;el.className='saved'+(err?' err':'')}if(err)toast(t)}
+window.addEventListener('pagehide',()=>{if(saveT)writeNow()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&saveT)writeNow()});
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+
+/* ---------- afledte data ---------- */
+let view=now().getFullYear(),scrolled=false;
+const S=()=>D.settings;
+function ratesFor(y){const YR=D.years;if(YR[y])return{...YR[y],missing:false};
+  const ks=Object.keys(YR).map(Number).sort((a,b)=>a-b);if(!ks.length)return null;
+  const prev=ks.filter(k=>k<y).pop()??ks[0];return{...YR[prev],missing:true,from:prev}}
+function limit12(){const s=S();if(!s||!s.startDate)return null;const d=P(s.startDate+'T00:00');d.setMonth(d.getMonth()+12);return d}
+function stdTrip(m){const s0=S(),t=s0.tpl||{};
+  const s=at(addD(m,(t.outDow||1)-1),t.outTime||'06:00'),e=at(addD(m,(t.homeDow||3)-1),t.homeTime||'17:00');
+  const wk=isoWeek(m).key,ml={};daysOf(s,e).forEach(k=>ml[k]={bf:!!(t.meals&&t.meals.bf),lu:!!(t.meals&&t.meals.lu),di:!!(t.meals&&t.meals.di)});
+  return{id:'std-'+wk,kind:'standard',virtual:true,start:loc(s),end:loc(e),kmOut:+s0.kmOneWay||0,kmHome:+s0.kmOneWay||0,transport:t.transport||'bil',meals:ml,logi:!!t.logi,note:'',wk}}
+let ALL=[];
+function buildAll(){
+  const TR=Object.values(D.trips).filter(t=>t.start&&t.end);ALL=TR.map(t=>({...t}));
+  const s0=S();if(!s0||!s0.startDate)return ALL.sort((a,b)=>P(a.start)-P(b.start));
+  const start=P(s0.startDate+'T00:00'),endLim=s0.endDate?P(s0.endDate+'T23:59'):null;
+  const horizon=new Date(Math.max(view,now().getFullYear())+1,0,7);
+  for(let m=mon(start);m<horizon&&(!endLim||m<=endLim);m=addD(m,7)){
+    const v=stdTrip(m);if(P(v.start)<start||(endLim&&P(v.start)>endLim))continue;
+    if(D.weeks[v.wk]&&D.weeks[v.wk].off)continue;if(D.trips[v.id])continue;
+    const m2=addD(m,7);if(TR.some(t=>P(t.start)<m2&&P(t.end)>m))continue;
+    ALL.push(v)}
+  ALL.sort((a,b)=>P(a.start)-P(b.start))}
+
+/* ---------- beregning ---------- */
+function calc(t){
+  const s=P(t.start),e=P(t.end),y=s.getFullYear(),r=ratesFor(y);
+  const km=(+t.kmOut||0)+(+t.kmHome||0),a=Math.max(0,Math.min(km,120)-24),b=Math.max(0,km-120);
+  const o={y,r,km,a,b,bef:0,hours:0,days:0,rest:0,gross:0,red:0,kost:0,logi:0,nights:0,n:{bf:0,lu:0,di:0},short:false,over12:false,paidTransport:t.transport==='arbejdsgiver',done:e<=now(),active:s<=now()&&e>now()};
+  if(!r||!(e>s))return o;
+  o.bef=o.paidTransport?0:a*r.kmHi+b*r.kmLo;
+  o.hours=Math.ceil((e-s)/36e5-1e-9);
+  const L=limit12();if(L&&s>=L)o.over12=true;
+  const range=new Set(daysOf(s,e));
+  for(const k in (t.meals||{}))if(range.has(k)){const m=t.meals[k];if(m.bf)o.n.bf++;if(m.lu)o.n.lu++;if(m.di)o.n.di++}
+  o.nights=Math.max(0,Math.round((new Date(e).setHours(0,0,0,0)-new Date(s).setHours(0,0,0,0))/864e5));
+  if(t.logi)o.logi=o.nights*(r.logi||0);
+  if(o.hours<24){o.short=true;o.logi=0;return o}
+  o.days=Math.floor(o.hours/24);o.rest=o.hours-o.days*24;
+  o.gross=r.kost*o.days+r.kost/24*o.rest;
+  o.red=r.kost*(.15*o.n.bf+.30*o.n.lu+.30*o.n.di);
+  o.kost=o.over12?0:Math.max(0,o.gross-o.red);
+  return o}
+function yearSummary(y){
+  const r=ratesFor(y),trips=ALL.filter(t=>P(t.start).getFullYear()===y),loft=r?r.loft:0;let accR=0,accAll=0;
+  const months=Array.from({length:12},()=>({done:0,plan:0,bef:0,rej:0}));
+  const res={y,r,trips,loft,befDone:0,befAll:0,rejDoneRaw:0,rejAllRaw:0,nDone:0,nAll:0,daysDone:0,kmDone:0,months,loftDate:null};
+  trips.forEach(t=>{const c=calc(t),rej=c.kost+c.logi,mi=P(t.start).getMonth();
+    const addAll=Math.max(0,Math.min(rej,loft-accAll));accAll+=addAll;
+    if(!res.loftDate&&loft&&accAll>=loft-0.005&&rej>0)res.loftDate=P(t.start);
+    res.befAll+=c.bef;res.rejAllRaw+=rej;res.nAll++;months[mi].bef+=c.bef;months[mi].rej+=addAll;
+    if(c.done){const addR=Math.max(0,Math.min(rej,loft-accR));accR+=addR;res.befDone+=c.bef;res.rejDoneRaw+=rej;res.nDone++;res.daysDone+=c.hours/24;res.kmDone+=c.km;months[mi].done+=c.bef+addAll}
+    else months[mi].plan+=c.bef+addAll});
+  res.rejDone=Math.min(res.rejDoneRaw,loft);res.rejAll=Math.min(res.rejAllRaw,loft);return res}
+
+/* ---------- dashboard ---------- */
+function renderDash(){
+  const el=$('dash'),s0=S();
+  if(!s0||!s0.startDate){
+    el.innerHTML=`<div class="onb"><div><div class="hero"><div><div class="k">Kom i gang</div></div></div>
+      <p class="note">Skriv dit navn, hvornår projektet startede, og hvor langt du har til Tønder. Kalenderen fyldes så ud med en standardtur mandag–onsdag, som du kan rette bagefter.</p></div>
+      <label for="oName">Navn<input id="oName" type="text" autocomplete="name" value="${esc(D.name)}"></label>
+      <div class="row"><label for="oStart">Projektstart<input id="oStart" type="date" value="${ymd(mon(now()))}"></label>
+        <label for="oKm">Km hver vej<input id="oKm" type="number" inputmode="numeric" value="180"></label></div>
+      <button class="btn primary block" id="oGo">Start logbogen</button>
+      <p class="note">Har du en backup? Brug “Indlæs backup” længere nede.</p></div>`;
+    $('oGo').onclick=()=>{const n=$('oName').value.trim(),st=$('oStart').value;if(!st)return toast('Vælg en projektstart');
+      D.name=n;D.settings={startDate:st,endDate:'',kmOneWay:+$('oKm').value||0,taxPct:25.5,tpl:{outDow:1,outTime:'06:00',homeDow:3,homeTime:'17:00',meals:{bf:false,lu:false,di:false},transport:'bil',logi:false}};
+      scrolled=false;commit();toast('Logbogen er klar')};
+    return}
+  const sm=yearSummary(view),r=sm.r;
+  if(!r){el.innerHTML=`<div class="warn">Der er ingen satser. Tilføj ${view} under Indstillinger og satser.</div>`;return}
+  const tax=(+s0.taxPct||0)/100,doneTot=sm.befDone+sm.rejDone,allTot=sm.befAll+sm.rejAll;
+  const cur=view===now().getFullYear(),past=view<now().getFullYear(),L=limit12();
+  const pR=sm.loft?Math.min(100,sm.rejDoneRaw/sm.loft*100):0,pA=sm.loft?Math.min(100,sm.rejAllRaw/sm.loft*100):0;
+  let warns='';
+  if(r.missing)warns+=`<div class="warn">Der mangler satser for ${view}. Beregningen bruger ${r.from}-satserne, indtil du tilføjer ${view}.</div>`;
+  if(r.prelim)warns+=`<div class="warn">Satserne for ${view} er foreløbige: ${esc(r.prelim)}</div>`;
+  if(L&&L<=new Date(view,11,31)&&L>=new Date(view,0,1))warns+=`<div class="warn">12-måneders-grænsen nås ${dlong(L)}. Ture, der starter derefter, giver kun befordringsfradrag.</div>`;
+  el.innerHTML=`
+   <div class="hero">
+     <div><div class="k">${past?'Fradrag':'Opsparet til dato'} ${view}</div><div class="big">${kr0(doneTot)} kr.</div><div class="s">≈ ${kr0(doneTot*tax)} kr. mindre i skat</div></div>
+     ${past?'':`<div><div class="k">Prognose hele året</div><div class="mid">${kr0(allTot)} kr.</div><div class="s">≈ ${kr0(allTot*tax)} kr. i skat</div></div>`}
+   </div>
+   <div class="kpis">
+     <div><span class="k">Befordring · rubrik 51</span><span class="v">${kr0(sm.befDone)}</span></div>
+     <div><span class="k">Rejse · rubrik 53</span><span class="v">${kr0(sm.rejDone)}</span></div>
+     <div><span class="k">Ture kørt</span><span class="v">${sm.nDone}${cur?` <span class="note">/ ${sm.nAll}</span>`:''}</span></div>
+     <div><span class="k">Døgn væk</span><span class="v">${kr0(sm.daysDone)}</span></div>
+   </div>
+   <div class="meter">
+     <div class="top"><span>Rejsefradrag mod loftet på ${kr0(sm.loft)} kr.</span><span class="num">${kr0(sm.rejDoneRaw)}${cur?` → ${kr0(sm.rejAllRaw)}`:''} kr.</span></div>
+     <div class="track" role="img" aria-label="Rejsefradrag ${kr0(sm.rejDoneRaw)} af ${kr0(sm.loft)} kr."><i class="p" style="width:${pA}%"></i><i class="r" style="width:${pR}%"></i></div>
+     <div class="note">${sm.rejAllRaw>sm.loft?`Loftet nås omkring ${sm.loftDate?dshort(sm.loftDate):'årets slutning'}. Derefter tæller kun befordringen.`:`Ingen risiko for at ramme loftet i ${view} med den nuværende plan.`}</div>
+   </div>
+   <div>
+     <div class="legend"><span><i class="sw r"></i>Registreret</span><span><i class="sw p"></i>Planlagt</span><span>Fradrag pr. måned, loftet indregnet</span></div>
+     <div class="chart" id="chart"></div>
+   </div>${warns}`;
+  drawChart(sm)}
+function drawChart(sm){
+  const W=600,H=170,l=44,rr=6,t=10,b=24,iw=W-l-rr,ih=H-t-b;
+  const mx=Math.max(1,...sm.months.map(m=>m.done+m.plan));
+  const step=[500,1000,2000,2500,5000,10000,20000].find(s=>mx/s<=4)||Math.ceil(mx/4/1000)*1000;const top=Math.ceil(mx/step)*step;
+  const y=v=>t+ih-(v/top)*ih,bw=iw/12,gap=8,w=bw-gap;
+  const rp=(x,y0,y1,rad)=>{const h=y0-y1;if(h<=0)return'';const r=Math.min(rad,h,w/2);return`M${x},${y0}V${y1+r}Q${x},${y1} ${x+r},${y1}H${x+w-r}Q${x+w},${y1} ${x+w},${y1+r}V${y0}Z`};
+  let g='';for(let v=0;v<=top;v+=step){g+=`<line x1="${l}" x2="${W-rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${l-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--mono)">${v>=1000?kr0(v/1000)+'k':v}</text>`}
+  let bars='',hits='';const nm=now().getMonth(),cur=sm.y===now().getFullYear();
+  sm.months.forEach((m,i)=>{const x=l+i*bw+gap/2,yd=y(m.done),ya=y(m.done+m.plan);
+    if(m.plan>0)bars+=`<path d="${rp(x,yd,ya,4)}" fill="url(#hatch)" stroke="var(--accent-mid)" stroke-width="1"/>`;
+    if(m.done>0)bars+=`<path d="${rp(x,y(0),yd,m.plan>0?0:4)}" fill="var(--accent)"/>`;
+    bars+=`<text x="${x+w/2}" y="${H-6}" text-anchor="middle" font-size="11" fill="${cur&&i===nm?'var(--fg)':'var(--muted)'}" font-weight="${cur&&i===nm?700:400}">${MON[i]}</text>`;
+    hits+=`<rect data-i="${i}" x="${l+i*bw}" y="${t}" width="${bw}" height="${ih}" fill="transparent"/>`});
+  $('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Fradrag pr. måned ${sm.y}">
+    <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--accent-soft)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--accent-mid)" stroke-width="2"/></pattern></defs>
+    ${g}<line x1="${l}" x2="${W-rr}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)" stroke-width="1"/>${bars}${hits}</svg><div class="tip" id="tip" hidden></div>`;
+  const svg=$('chart').querySelector('svg'),tip=$('tip');
+  const show=e=>{const i=+e.target.dataset.i;if(isNaN(i))return;const m=sm.months[i],box=svg.getBoundingClientRect(),sc=box.width/W;
+    tip.innerHTML=`${MONL[i]} ${sm.y}<br>Befordring <b>${kr0(m.bef)}</b><br>Rejse <b>${kr0(m.rej)}</b><br>I alt <b>${kr0(m.done+m.plan)} kr.</b>${m.plan>0?' (heraf planlagt '+kr0(m.plan)+')':''}`;
+    tip.style.left=Math.min(box.width-70,Math.max(70,(l+i*bw+bw/2)*sc))+'px';tip.style.top=(y(m.done+m.plan)*sc-6)+'px';tip.hidden=false};
+  svg.querySelectorAll('rect[data-i]').forEach(r=>{r.addEventListener('pointerenter',show);r.addEventListener('click',show)});
+  svg.addEventListener('pointerleave',()=>tip.hidden=true)}
+
+/* ---------- kalender ---------- */
+function renderYears(){const ys=new Set([now().getFullYear(),...Object.keys(D.years).map(Number),...Object.values(D.trips).map(t=>P(t.start).getFullYear())]);
+  if(S()&&S().startDate)ys.add(+S().startDate.slice(0,4));
+  $('years').innerHTML='';[...ys].filter(y=>!isNaN(y)).sort().forEach(y=>{const b=document.createElement('button');b.className='chip';b.textContent=y;b.setAttribute('aria-pressed',y===view);b.onclick=()=>{view=y;scrolled=false;render()};$('years').append(b)})}
+function tripsInWeek(m){const m2=addD(m,7);return ALL.filter(t=>P(t.start)<m2&&P(t.end)>m)}
+function weekRow(m,idp){
+  const s0=S(),today=ymd(now()),thisWk=isoWeek(now()).key;
+  const start=s0&&s0.startDate?P(s0.startDate+'T00:00'):null,endLim=s0&&s0.endDate?P(s0.endDate+'T23:59'):null;
+  const iw=isoWeek(m),trips=tripsInWeek(m),off=D.weeks[iw.key]&&D.weeks[iw.key].off;
+  const outside=!start||addD(m,7)<=start||(endLim&&m>endLim);
+  let tag='',amt=0;
+  trips.forEach(t=>{if(P(t.start)>=m&&P(t.start)<addD(m,7)){const c=calc(t);amt+=c.bef+c.kost+c.logi}});
+  if(trips.length){const k=trips.map(t=>t.kind);
+    if(k.includes('periode'))tag='<span class="tag per">Periode</span>';
+    else if(trips.some(t=>t.kind==='standard'&&!t.virtual))tag='<span class="tag edit">Rettet</span>';
+    else if(k.includes('manuel'))tag='<span class="tag edit">Manuel</span>';
+    else tag='<span class="tag std">Standard</span>';
+    if(trips.every(t=>!calc(t).done))tag+=' <span class="tag plan">plan</span>'}
+  else if(off)tag=`<span class="tag">${esc(D.weeks[iw.key].reason||'Ferie')}</span>`;
+  let cells='';
+  for(let i=0;i<7;i++){const d=addD(m,i),k=ymd(d),hol=holName(d);
+    const tr=trips.find(t=>daysOf(P(t.start),P(t.end)).includes(k));let cls='dy',extra='';
+    if(tr){const c=calc(tr);cls+=' away'+(c.done||c.active&&k<=today?'':' plan');
+      const s=P(tr.start),e=P(tr.end);if(ymd(s)===k)extra=`<span class="t">${hm(s)}→</span>`;else if(ymd(e)===k)extra=`<span class="t">→${hm(e)}</span>`;
+      const ml=(tr.meals||{})[k]||{};extra+=`<span class="dots" aria-hidden="true"><i class="${ml.bf?'f':''}"></i><i class="${ml.lu?'f':''}"></i><i class="${ml.di?'f':''}"></i></span>`}
+    else if(off&&i<5)cls+=' offd';
+    if(hol)cls+=' hol';
+    cells+=`<div class="${cls}" title="${hol?esc(hol):''}"><span class="dw">${DOW[i]}</span><span class="dn">${d.getDate()}</span>${extra}</div>`}
+  return `<button class="wk${iw.key===thisWk?' now':''}${outside&&!trips.length?' out':''}" data-m="${ymd(m)}"${idp?` id="${idp}${iw.key}"`:''}>
+    <div class="wkh"><span class="n">Uge ${iw.w}</span><span class="d">${dshort(m)} – ${dshort(addD(m,6))}</span>${tag}<span class="amt">${amt?kr0(amt)+' kr.':''}</span></div>
+    <div class="days">${cells}</div></button>`}
+let monthCache={};
+function monthSum(y,mi){if(!monthCache[y])monthCache[y]=yearSummary(y).months;const m=monthCache[y][mi];return m.done+m.plan}
+function renderCal(){
+  const el=$('cal');$('calTitle').textContent='Kalender '+view;
+  if(!S()){el.innerHTML='';return}
+  let h='',lastM=-1;const thisWk=isoWeek(now()).key;
+  for(let m=mon(new Date(view,0,1));m<=new Date(view,11,31);m=addD(m,7)){
+    const mm=m.getFullYear()<view?0:m.getMonth();
+    if(mm!==lastM){const ms=monthSum(view,mm);h+=`<div class="mh"><span>${MONL[mm]}</span><span class="num">${ms?kr0(ms)+' kr.':''}</span></div>`;lastM=mm}
+    h+=weekRow(m,'w-')}
+  el.innerHTML=h;
+  el.querySelectorAll('.wk').forEach(b=>b.onclick=()=>openWeek(P(b.dataset.m+'T00:00')));
+  }
+let fw=mon(now());
+function renderFocus(){const el=$('focus');if(!S()){el.innerHTML='';return}
+  const iw=isoWeek(fw),cur=iw.key===isoWeek(now()).key,trips=tripsInWeek(fw);
+  let det='';trips.forEach(t=>{const c=calc(t),s=P(t.start),e=P(t.end),nm=c.n.bf+c.n.lu+c.n.di;
+    det+=`<div class="calc"><span>${DOW[dow(s)]} ${dshort(s)} ${hm(s)} → ${DOW[dow(e)]} ${dshort(e)} ${hm(e)} · ${c.hours} t${c.done?'':' · planlagt'}</span><span></span>
+     <span>Befordring ${c.km} km · ${esc(TRANSPORT[t.transport]||TRANSPORT.bil)}</span><span>${kr2(c.bef)}</span>
+     <span>Kost${c.short?' (under 24 t)':''}${nm?` · ${nm} gratis måltider`:''}</span><span>${kr2(c.kost)}</span>
+     ${c.logi?`<span>Logi</span><span>${kr2(c.logi)}</span>`:''}
+     <span class="t">I alt</span><span class="t">${kr2(c.bef+c.kost+c.logi)} kr.</span></div>`});
+  el.innerHTML=`<div class="fh"><h2>${cur?'Denne uge':'Uge '+iw.w+' · '+iw.y}</h2><div class="nav"><button class="btn" id="fPrev" aria-label="Forrige uge">‹</button><button class="btn" id="fNow" ${cur?'disabled':''}>I dag</button><button class="btn" id="fNext" aria-label="Næste uge">›</button></div></div>
+    ${weekRow(fw,'')}${det}<div class="note">Tryk på ugen for at rette tider, transport og måltider.</div>`;
+  el.querySelector('.wk').onclick=()=>openWeek(fw);
+  $('fPrev').onclick=()=>{fw=addD(fw,-7);renderFocus()};$('fNext').onclick=()=>{fw=addD(fw,7);renderFocus()};$('fNow').onclick=()=>{fw=mon(now());renderFocus()}}
+function renderHeader(){$('title').textContent=D.name?(D.name+(/[sxz]$/i.test(D.name)?'’':'s')+' Tønder-logbog'):'Tønder-logbog';
+  const s0=S();$('subtitle').textContent=s0?`Aarhus ⇄ Tønder · ${s0.kmOneWay||0} km hver vej`:'Aarhus ⇄ Tønder · befordring og rejsefradrag';
+  $('mainActions').hidden=!s0;$('calSec').hidden=!s0;
+  const lb=D.lastBackup?P(D.lastBackup):null,age=lb?(now()-lb)/864e5:null,hasData=Object.keys(D.trips).length>0||!!s0;
+  $('lastBak').textContent=lb?`Seneste backup: ${dlong(lb)} kl. ${hm(lb)}`:'Der er ikke gemt nogen backup endnu.';
+  $('bakBanner').hidden=!(hasData&&(age===null||age>14));
+  $('bakText').textContent=age===null?'Der er endnu ingen backup af logbogen.':`Det er ${Math.floor(age)} dage siden seneste backup.`}
+function render(){buildAll();monthCache={};renderHeader();renderYears();renderDash();renderFocus();renderCal()}
+
+/* ---------- ark ---------- */
+function openSheet(html){$('panel').innerHTML=html;$('sheet').hidden=false;$('panel').scrollTop=0}
+function closeSheet(){if(saveT)writeNow();$('sheet').hidden=true;ed=null}
+$('sheet').addEventListener('click',e=>{if(e.target===$('sheet'))closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet').hidden)closeSheet()});
+const head=t=>`<div class="sheethead"><h3>${t}</h3><span class="saved" id="svState">Gemmes automatisk</span></div>`;
+
+function openWeek(m){
+  const iw=isoWeek(m),trips=tripsInWeek(m),off=D.weeks[iw.key]&&D.weeks[iw.key].off;
+  if(trips.length===1)return openTrip(trips[0],iw.key);
+  let h=head(`Uge ${iw.w} · ${dshort(m)} – ${dshort(addD(m,6))}`);
+  if(trips.length>1){h+='<div class="note">Der er flere ture i ugen. Vælg en:</div>';
+    trips.forEach((t,i)=>h+=`<button class="btn block" data-i="${i}">${DOWL[dow(P(t.start))]} ${dshort(P(t.start))} ${hm(P(t.start))} → ${DOWL[dow(P(t.end))].toLowerCase()} ${dshort(P(t.end))} ${hm(P(t.end))}</button>`)}
+  else if(off)h+=`<div class="note">Ugen er markeret som <b>${esc(D.weeks[iw.key].reason||'ferie')}</b>, så der lægges ingen standardtur ind.</div><button class="btn primary block" id="xRestore">Gendan standardtur</button>`;
+  else h+=`<div class="note">${S()&&addD(m,7)<=P(S().startDate+'T00:00')?'Ugen ligger før projektstart.':'Ingen tur i denne uge.'}</div>`;
+  h+=`<div class="actions"><button class="btn" id="xNew">+ Tilføj tur i ugen</button>${!off&&!trips.length?'<button class="btn" id="xOff">Markér som ferie</button>':''}<button class="btn" id="xClose">Færdig</button></div>`;
+  openSheet(h);
+  $('panel').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>openTrip(trips[+b.dataset.i],iw.key));
+  if($('xRestore'))$('xRestore').onclick=()=>{delete D.weeks[iw.key];commit();closeSheet();toast('Standardturen er tilbage')};
+  if($('xOff'))$('xOff').onclick=()=>{D.weeks[iw.key]={off:true,reason:'Ferie'};commit();closeSheet();toast('Ugen er markeret som ferie')};
+  $('xNew').onclick=()=>openTrip(newTrip(m),iw.key);
+  $('xClose').onclick=closeSheet}
+function newTrip(m){const s0=S()||{},t=s0.tpl||{};
+  return{id:null,kind:'manuel',start:loc(at(addD(m,(t.outDow||1)-1),t.outTime||'06:00')),end:loc(at(addD(m,(t.homeDow||3)-1),t.homeTime||'17:00')),kmOut:+s0.kmOneWay||0,kmHome:+s0.kmOneWay||0,transport:t.transport||'bil',meals:{},logi:false,note:''}}
+
+let ed=null;
+function openTrip(t,wkKey){
+  ed=JSON.parse(JSON.stringify(t));ed.meals=ed.meals||{};ed.wkKey=wkKey||(t.start?isoWeek(P(t.start)).key:null);
+  const isStd=ed.kind==='standard';
+  const title=isStd?'Standardtur':ed.kind==='periode'?'Periode':ed.id?'Tur':'Ny tur';
+  openSheet(`${head(title)}
+   ${isStd&&ed.virtual?'<div class="note">Turen er lagt ind automatisk. Ret det, der ikke passer – ændringer gemmes med det samme.</div>':''}
+   <div class="row dt"><label for="eS">Hjemmefra<input type="datetime-local" id="eS" value="${ed.start||''}"></label>
+     <label for="eE">Hjemme igen<input type="datetime-local" id="eE" value="${ed.end||''}"></label></div>
+   <div class="row"><label for="eT">Transport<select id="eT">${Object.entries(TRANSPORT).map(([k,v])=>`<option value="${k}" ${ed.transport===k?'selected':''}>${v}</option>`).join('')}</select></label></div>
+   <div class="row"><label for="eKo">Km ud<input type="number" id="eKo" inputmode="numeric" min="0" value="${ed.kmOut??''}"></label>
+     <label for="eKh">Km hjem<input type="number" id="eKh" inputmode="numeric" min="0" value="${ed.kmHome??''}"></label></div>
+   <div><h4>Gratis måltider · tryk på dem, du fik betalt</h4>
+     <div class="actions" style="margin:6px 0"><button class="btn" type="button" id="mAll">Alle gratis</button><button class="btn" type="button" id="mNone">Ingen gratis</button></div>
+     <div class="meals" id="eMeals"></div></div>
+   <label class="check" for="eLogi"><input type="checkbox" id="eLogi" ${ed.logi?'checked':''}> Jeg betalte selv for overnatningen (logi efter standardsats)</label>
+   <label for="eNote">Note (formål, medkørende, afvigelser)<input type="text" id="eNote" maxlength="200" value="${esc(ed.note||'')}"></label>
+   <div class="calc" id="eCalc"></div>
+   <div class="actions" id="eActs"></div>`);
+  ['eS','eE'].forEach(id=>$(id).addEventListener('change',()=>{readEd();drawMeals();changed()}));
+  ['eKo','eKh','eNote'].forEach(id=>$(id).addEventListener('input',()=>changed()));
+  ['eT','eLogi'].forEach(id=>$(id).addEventListener('change',()=>changed()));
+  $('mAll').onclick=()=>{daysOf(P(ed.start),P(ed.end)).forEach(k=>ed.meals[k]={bf:true,lu:true,di:true});drawMeals();changed()};
+  $('mNone').onclick=()=>{daysOf(P(ed.start),P(ed.end)).forEach(k=>ed.meals[k]={bf:false,lu:false,di:false});drawMeals();changed()};
+  drawMeals();drawCalc();drawActs()}
+function drawActs(){const isStd=ed.kind==='standard',saved=!ed.virtual&&!!ed.id&&!!D.trips[ed.id];
+  $('eActs').innerHTML=`${isStd?'<button class="btn" id="eOff">Ingen tur denne uge (ferie)</button>':''}
+    ${isStd&&saved?'<button class="btn" id="eReset">Gendan standard</button>':''}
+    ${!isStd&&saved?'<button class="btn danger" id="eDel">Slet tur</button>':''}
+    <button class="btn primary" id="eDone">Færdig</button>`;
+  $('eDone').onclick=closeSheet;
+  if($('eOff'))$('eOff').onclick=()=>{D.weeks[ed.wkKey]={off:true,reason:'Ferie'};if(D.trips[ed.id])delete D.trips[ed.id];commit();closeSheet();toast('Ugen er markeret som ferie')};
+  if($('eReset'))$('eReset').onclick=()=>{delete D.trips[ed.id];commit();closeSheet();toast('Standardturen er gendannet')};
+  if($('eDel'))$('eDel').onclick=()=>{const b=$('eDel');if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tryk igen for at slette';return}delete D.trips[ed.id];commit();closeSheet();toast('Turen er slettet')}}
+function readEd(){ed.start=$('eS').value;ed.end=$('eE').value;ed.transport=$('eT').value;ed.kmOut=+$('eKo').value||0;ed.kmHome=+$('eKh').value||0;ed.logi=$('eLogi').checked;ed.note=$('eNote').value.trim()}
+function changed(){readEd();drawCalc();
+  if(!ed.start||!ed.end||P(ed.end)<=P(ed.start)){setSaved('Ikke gemt: hjemkomst skal ligge efter afrejse',true);return}
+  if(!ed.id)ed.id=uid();
+  const range=new Set(daysOf(P(ed.start),P(ed.end))),meals={};for(const k in ed.meals)if(range.has(k))meals[k]={bf:!!ed.meals[k].bf,lu:!!ed.meals[k].lu,di:!!ed.meals[k].di};
+  const wasNew=!D.trips[ed.id];
+  D.trips[ed.id]={id:ed.id,kind:ed.kind||'manuel',start:ed.start,end:ed.end,transport:ed.transport,kmOut:ed.kmOut,kmHome:ed.kmHome,meals,logi:!!ed.logi,note:ed.note};
+  ed.virtual=false;commit();if(wasNew)drawActs()}
+function drawMeals(){const el=$('eMeals');if(!ed.start||!ed.end||P(ed.end)<=P(ed.start)){el.innerHTML='<div class="note">Angiv afrejse og hjemkomst.</div>';return}
+  let h='<div class="mrow"><span></span><span class="mh2">Morgen</span><span class="mh2">Frokost</span><span class="mh2">Aften</span></div>';
+  daysOf(P(ed.start),P(ed.end)).forEach(k=>{const d=P(k+'T12:00'),m=ed.meals[k]||(ed.meals[k]={bf:false,lu:false,di:false}),hol=holName(d);
+    h+=`<div class="mrow"><span class="lbl">${DOW[dow(d)]} ${dshort(d)}${hol?` <small>${esc(hol)}</small>`:''}</span>
+     ${['bf','lu','di'].map(x=>`<button type="button" class="mt" data-k="${k}" data-x="${x}" aria-pressed="${!!m[x]}" aria-label="${x==='bf'?'Morgenmad':x==='lu'?'Frokost':'Aftensmad'} ${dshort(d)} gratis">${m[x]?'Gratis':'–'}</button>`).join('')}</div>`});
+  el.innerHTML=h;
+  el.querySelectorAll('.mt').forEach(b=>b.onclick=()=>{const m=ed.meals[b.dataset.k];m[b.dataset.x]=!m[b.dataset.x];b.setAttribute('aria-pressed',m[b.dataset.x]);b.textContent=m[b.dataset.x]?'Gratis':'–';changed()})}
+function drawCalc(){const el=$('eCalc');if(!ed.start||!ed.end){el.innerHTML='';return}
+  if(P(ed.end)<=P(ed.start)){el.innerHTML='<span style="color:var(--danger)">Hjemkomst skal ligge efter afrejse</span><span></span>';return}
+  const c=calc(ed);if(!c.r){el.innerHTML='<span>Der mangler satser</span><span></span>';return}
+  el.innerHTML=`<span>Befordring ${c.km} km${c.paidTransport?' – betalt af arbejdsgiver':`: ${c.a} × ${kr2(c.r.kmHi)}${c.b?' + '+c.b+' × '+kr2(c.r.kmLo):''}`}</span><span>${kr2(c.bef)}</span>
+   <span>Kost ${c.short?'(under 24 timer – intet fradrag)':`${c.days} døgn + ${c.rest} t`}</span><span>${kr2(c.short?0:c.gross)}</span>
+   ${c.red&&!c.short?`<span>Gratis måltider: ${c.n.bf} morgen, ${c.n.lu} frokost, ${c.n.di} aften</span><span>−${kr2(Math.min(c.red,c.gross))}</span>`:''}
+   ${c.over12?'<span>Efter 12 måneder – intet kostfradrag</span><span></span>':''}
+   ${c.logi?`<span>Logi ${c.nights} nætter × ${kr2(c.r.logi)}</span><span>${kr2(c.logi)}</span>`:''}
+   <span class="t">Fradrag for turen</span><span class="t">${kr2(c.bef+c.kost+c.logi)} kr.</span>`}
+
+/* periode eller ferie */
+function openPeriod(){
+  const nx=addD(mon(now()),7),s0=S(),t=s0.tpl||{};
+  openSheet(`<h3>Periode eller ferie</h3>
+   <div class="seg" role="group"><button type="button" id="pT1" aria-pressed="true">Ophold i Tønder</button><button type="button" id="pT2" aria-pressed="false">Ferie</button></div>
+   <div id="pA">
+     <div class="note" style="margin-bottom:10px">Til lange ophold, fx festivalugerne. Det bliver én samlet tur med én kørsel ud og hjem, og standardturene i de uger forsvinder.</div>
+     <div class="row dt"><label for="pS">Hjemmefra<input type="datetime-local" id="pS" value="${loc(at(nx,t.outTime||'06:00'))}"></label>
+       <label for="pE">Hjemme igen<input type="datetime-local" id="pE" value="${loc(at(addD(nx,16),t.homeTime||'17:00'))}"></label></div>
+     <div class="row" style="margin-top:10px"><label for="pKo">Km ud<input type="number" id="pKo" inputmode="numeric" value="${+s0.kmOneWay||0}"></label><label for="pKh">Km hjem<input type="number" id="pKh" inputmode="numeric" value="${+s0.kmOneWay||0}"></label></div>
+     <h4 style="margin-top:12px">Gratis måltider hver dag som udgangspunkt</h4>
+     <div class="row"><label class="check" for="pBf"><input type="checkbox" id="pBf" checked> Morgenmad</label><label class="check" for="pLu"><input type="checkbox" id="pLu" checked> Frokost</label><label class="check" for="pDi"><input type="checkbox" id="pDi" checked> Aftensmad</label></div>
+     <label for="pN" style="margin-top:10px">Note<input type="text" id="pN" value="Festivalafvikling" maxlength="200"></label>
+     <button class="btn primary block" id="pGo1" style="margin-top:12px">Opret perioden</button>
+   </div>
+   <div id="pB" hidden>
+     <div class="note" style="margin-bottom:10px">Alle uger med en mandag i perioden markeres som ferie, så standardturen ikke lægges ind.</div>
+     <div class="row"><label for="fS">Fra<input type="date" id="fS" value="${ymd(nx)}"></label><label for="fE">Til<input type="date" id="fE" value="${ymd(addD(nx,6))}"></label></div>
+     <label for="fR" style="margin-top:10px">Årsag<input type="text" id="fR" value="Ferie" maxlength="40"></label>
+     <button class="btn primary block" id="pGo2" style="margin-top:12px">Markér som ferie</button>
+   </div>
+   <button class="btn" id="pClose">Annullér</button>`);
+  const sw=n=>{$('pT1').setAttribute('aria-pressed',n===1);$('pT2').setAttribute('aria-pressed',n===2);$('pA').hidden=n!==1;$('pB').hidden=n!==2};
+  $('pT1').onclick=()=>sw(1);$('pT2').onclick=()=>sw(2);$('pClose').onclick=closeSheet;
+  $('pGo1').onclick=()=>{const s=$('pS').value,e=$('pE').value;if(!s||!e||P(e)<=P(s))return toast('Hjemkomst skal ligge efter afrejse');
+    const ml={};daysOf(P(s),P(e)).forEach(k=>ml[k]={bf:$('pBf').checked,lu:$('pLu').checked,di:$('pDi').checked});
+    const id=uid();D.trips[id]={id,kind:'periode',start:s,end:e,transport:t.transport||'bil',kmOut:+$('pKo').value||0,kmHome:+$('pKh').value||0,meals:ml,logi:false,note:$('pN').value.trim()};
+    commit();openTrip(D.trips[id]);toast('Perioden er oprettet – fjern de måltider, du selv betalte')};
+  $('pGo2').onclick=()=>{const a=$('fS').value,b=$('fE').value;if(!a||!b||b<a)return toast('Slutdatoen skal ligge efter startdatoen');
+    const keys=[];for(let m=mon(P(a+'T00:00'));m<=P(b+'T23:59');m=addD(m,7))if(m>=P(a+'T00:00'))keys.push(isoWeek(m).key);
+    if(!keys.length)keys.push(isoWeek(P(a+'T00:00')).key);
+    const r=$('fR').value.trim()||'Ferie';keys.forEach(k=>D.weeks[k]={off:true,reason:r});commit();closeSheet();toast(`${keys.length} ${keys.length===1?'uge':'uger'} markeret som ${r.toLowerCase()}`)}}
+
+/* indstillinger og satser */
+function openSettings(){
+  const s=S(),t=s.tpl||{};
+  const opt=v=>DOWL.map((d,i)=>`<option value="${i+1}" ${+v===i+1?'selected':''}>${d}</option>`).join('');
+  const F=['kost','logi','loft','kmHi','kmLo'];
+  const yrow=y=>{const r=D.years[y]||{};return`<tr data-y="${y}"><td>${y}</td>${F.map(f=>`<td><input type="number" step="0.01" inputmode="decimal" id="y${y}_${f}" value="${r[f]??''}"></td>`).join('')}<td><input type="text" id="y${y}_prelim" value="${esc(r.prelim||'')}" placeholder="–"></td></tr>`};
+  openSheet(`${head('Indstillinger og satser')}
+   <h4>Dig</h4>
+   <div class="row"><label for="sNm">Navn<input type="text" id="sNm" autocomplete="name" value="${esc(D.name)}"></label>
+     <label for="sTax">Skatteværdi af fradrag (%)<input type="number" id="sTax" step="0.1" inputmode="decimal" value="${s.taxPct??25.5}"></label></div>
+   <div class="note">Skatteværdien er din kommuneskat plus evt. kirkeskat (ca. 25–26 %).</div>
+   <h4>Projekt</h4>
+   <div class="row"><label for="sSt">Projektstart<input type="date" id="sSt" value="${s.startDate||''}"></label>
+     <label for="sEn">Projektslut (valgfri)<input type="date" id="sEn" value="${s.endDate||''}"></label>
+     <label for="sKm">Km hver vej<input type="number" id="sKm" inputmode="numeric" value="${s.kmOneWay??''}"></label></div>
+   <div class="note">Projektstart styrer også 12-måneders-grænsen for kostfradrag.</div>
+   <h4>Standardtur hver uge</h4>
+   <div class="row"><label for="sOd">Kører ud<select id="sOd">${opt(t.outDow||1)}</select></label><label for="sOt">Kl.<input type="time" id="sOt" value="${t.outTime||'06:00'}"></label></div>
+   <div class="row"><label for="sHd">Hjemme igen<select id="sHd">${opt(t.homeDow||3)}</select></label><label for="sHt">Kl.<input type="time" id="sHt" value="${t.homeTime||'17:00'}"></label></div>
+   <div class="row"><label for="sTr">Transport<select id="sTr">${Object.entries(TRANSPORT).map(([k,v])=>`<option value="${k}" ${(t.transport||'bil')===k?'selected':''}>${v}</option>`).join('')}</select></label></div>
+   <div class="note">Gratis måltider på standardturen:</div>
+   <div class="row"><label class="check" for="sBf"><input type="checkbox" id="sBf" ${t.meals&&t.meals.bf?'checked':''}> Morgenmad</label><label class="check" for="sLu"><input type="checkbox" id="sLu" ${t.meals&&t.meals.lu?'checked':''}> Frokost</label><label class="check" for="sDi"><input type="checkbox" id="sDi" ${t.meals&&t.meals.di?'checked':''}> Aftensmad</label></div>
+   <label class="check" for="sLo"><input type="checkbox" id="sLo" ${t.logi?'checked':''}> Jeg betaler selv for overnatningen (logi)</label>
+   <h4>Satser pr. kalenderår</h4>
+   <div class="note">Kost og logi er kr. pr. døgn. Loftet gælder kost og logi samlet. Km-satserne er befordringsfradraget for 25–120 km og over 120 km pr. dag.</div>
+   <div class="ytab"><table><thead><tr><th>År</th><th>Kost</th><th>Logi</th><th>Loft</th><th>Km 25–120</th><th>Km &gt;120</th><th>Bemærkning</th></tr></thead>
+     <tbody id="yBody">${Object.keys(D.years).sort().map(yrow).join('')}</tbody></table></div>
+   <div class="actions"><button class="btn" id="yAdd">+ Tilføj år</button><button class="btn primary" id="sClose">Færdig</button></div>`);
+  const saveS=()=>{const ns={...s,startDate:$('sSt').value,endDate:$('sEn').value,kmOneWay:+$('sKm').value||0,taxPct:parseFloat(String($('sTax').value).replace(',','.'))||0,
+      tpl:{outDow:+$('sOd').value,outTime:$('sOt').value,homeDow:+$('sHd').value,homeTime:$('sHt').value,transport:$('sTr').value,meals:{bf:$('sBf').checked,lu:$('sLu').checked,di:$('sDi').checked},logi:$('sLo').checked}};
+    if(!ns.startDate)return setSaved('Ikke gemt: angiv projektstart',true);
+    if(ns.tpl.homeDow<ns.tpl.outDow||(ns.tpl.homeDow===ns.tpl.outDow&&ns.tpl.homeTime<=ns.tpl.outTime))return setSaved('Ikke gemt: hjemkomst skal ligge efter afrejse',true);
+    D.name=$('sNm').value.trim();D.settings=ns;commit()};
+  $('panel').querySelectorAll('#sNm,#sTax,#sSt,#sEn,#sKm,#sOt,#sHt').forEach(i=>i.addEventListener('input',saveS));
+  $('panel').querySelectorAll('#sOd,#sHd,#sTr,#sBf,#sLu,#sDi,#sLo').forEach(i=>i.addEventListener('change',saveS));
+  const bindY=()=>$('yBody').querySelectorAll('input').forEach(i=>{if(i.dataset.b)return;i.dataset.b=1;i.addEventListener('input',()=>{const y=i.closest('tr').dataset.y,g=f=>parseFloat(String($(`y${y}_${f}`).value).replace(',','.'));
+    const r={};F.forEach(f=>r[f]=g(f));if(['kost','loft','kmHi','kmLo'].some(f=>isNaN(r[f])))return setSaved(`Ikke gemt: udfyld kost, loft og km-satser for ${y}`,true);
+    if(isNaN(r.logi))r.logi=0;r.prelim=$(`y${y}_prelim`).value.trim();D.years[y]=r;commit()})});
+  bindY();
+  $('yAdd').onclick=()=>{const ks=Object.keys(D.years).map(Number),last=ks.length?Math.max(...ks):now().getFullYear()-1,ny=last+1;
+    D.years[ny]={...(D.years[last]||DEFAULT_YEARS[2026]),prelim:'Kopieret fra året før – ret til de nye satser'};commit();
+    const tb=document.createElement('tbody');tb.innerHTML=yrow(ny);$('yBody').append(tb.firstElementChild);bindY();$(`y${ny}_kost`).focus()};
+  $('sClose').onclick=closeSheet}
+
+/* eksport og backup */
+async function deliver(name,text,type){const blob=new Blob([text],{type});const file=new File([blob],name,{type});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});return true}}catch(e){if(e&&e.name==='AbortError')return false}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);return true}
+function rows(){const h=['Navn','Uge','Type','Transport','Dato ud','Kl. ud','Dato hjem','Kl. hjem','Timer','Km i alt','Gratis morgenmad','Gratis frokost','Gratis aftensmad','Logi nætter','Befordring kr (rubrik 51)','Kost og logi kr (rubrik 53, før loft)','Note'];
+  const n=x=>x.toFixed(2).replace('.',','),d=x=>x.toLocaleDateString('da-DK');
+  const body=ALL.filter(t=>P(t.start).getFullYear()===view&&calc(t).done).map(t=>{const c=calc(t),s=P(t.start),e=P(t.end);
+    return[D.name,isoWeek(s).w,t.kind,TRANSPORT[t.transport]||TRANSPORT.bil,d(s),hm(s),d(e),hm(e),c.hours,c.km,c.n.bf,c.n.lu,c.n.di,t.logi?c.nights:0,n(c.bef),n(c.kost+c.logi),(t.note||'').replace(/[;\t\n]/g,' ')]});
+  const sm=yearSummary(view);body.push([],['I alt '+view,'','','','','','','','','','','','','',n(sm.befDone),n(sm.rejDoneRaw)+' (efter loft '+n(sm.rejDone)+')','']);
+  return[h,...body]}
+const slug=()=>(D.name||'logbog').toLowerCase().replace(/[^a-z0-9æøå]+/g,'-');
+$('bCsv').onclick=()=>deliver(`toender-logbog-${slug()}-${view}.csv`,'﻿'+rows().map(r=>r.join(';')).join('\r\n'),'text/csv');
+$('bCopy').onclick=()=>{navigator.clipboard.writeText(rows().map(r=>r.join('\t')).join('\n')).then(()=>toast('Kopieret – sæt ind i Excel')).catch(()=>toast('Browseren tillod ikke kopiering'))};
+async function backup(){if(saveT)writeNow();const out={...D,app:'toender-logbog',format:2,saved:loc(now()),appVersion:APP_VERSION};
+  if(await deliver(`toender-logbog-${slug()}-backup-${ymd(now())}.json`,JSON.stringify(out,null,1),'application/json')){D.lastBackup=loc(now());commit();toast('Backup er gemt')}}
+$('bBak').onclick=backup;$('bakNow').onclick=backup;
+let pendingImport=null;
+$('bRes').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  let d;try{d=JSON.parse(await f.text())}catch{return toast('Filen er ikke en gyldig backup')}
+  if(d.app!=='toender-logbog')return toast('Filen er ikke en backup fra Tønder-logbogen');
+  const nd=migrate(d),nT=Object.keys(nd.trips).length;
+  openSheet(`<h3>Indlæs backup</h3><p>Backuppen${d.saved?` fra ${esc(d.saved.replace('T',' kl. '))}`:''} indeholder ${nT} gemte ture${nd.name?` for ${esc(nd.name)}`:''}.</p>
+    <p class="note">Det, der ligger på denne enhed nu, bliver erstattet. Gem evt. en backup først.</p>
+    <div class="actions"><button class="btn primary" id="iGo">Erstat med backuppen</button><button class="btn" id="iNo">Annullér</button></div>`);
+  $('iNo').onclick=closeSheet;$('iGo').onclick=()=>{nd.lastBackup=D.lastBackup;D=nd;scrolled=false;commit();writeNow();closeSheet();toast('Backuppen er indlæst')}});
+
+$('bPeriod').onclick=()=>S()&&openPeriod();
+$('bTrip').onclick=()=>S()&&openTrip(newTrip(mon(now())));
+$('bSettings').onclick=()=>S()&&openSettings();
+$('ver').textContent=APP_VERSION;
+
+/* opdatering: ny version hentes automatisk, når siden har net */
+if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+setInterval(()=>{if($('sheet').hidden)render()},5*60*1000);
+render();
+</script>
+</body>
+</html>
