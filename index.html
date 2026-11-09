@@ -191,7 +191,7 @@ input,select{font:16px var(--sans);color:var(--fg);background:var(--bg);border:1
   <section class="focus" id="focus"></section>
 
   <div class="actions" id="mainActions">
-    <button class="btn" id="bPeriod">+ Periode eller ferie</button>
+    <button class="btn" id="bPeriod">+ Periode, fravær eller ferie</button>
     <button class="btn" id="bTrip">+ Enkelt tur</button>
     <button class="btn" id="bSettings">Indstillinger og satser</button>
   </div>
@@ -214,7 +214,7 @@ input,select{font:16px var(--sans);color:var(--fg);background:var(--bg);border:1
   </section>
 
   <div class="foot">
-    <span>Hver uge fyldes ud med standardturen fra Indstillinger. Tryk på en uge for at rette tider, transport og gratis måltider eller melde ferie. Fremtidige uger er skraveret og tæller kun med i prognosen.</span>
+    <span>Hver uge fyldes ud med standardturen fra Indstillinger. Tryk på en uge for at rette tider, transport og gratis måltider eller markere den som uden tur. Fremtidige uger er skraveret og tæller kun med i prognosen.</span>
     <span>Befordring: én tur ud og hjem er én kørselsdag med ét bundfradrag på 24 km, uanset om du kører selv, er passager eller tager tog. Intet befordringsfradrag, hvis arbejdsgiveren betaler transporten. Kost: døgnsats plus 1/24 pr. påbegyndt time, kun ved ture på mindst 24 timer og højst 12 måneder fra projektstart. Gratis måltider trækker 15 % (morgenmad) eller 30 % (frokost, aftensmad) af døgnsatsen.</span>
     <span>Data ligger kun på denne enhed og sendes ingen steder hen. Version <span id="ver"></span>.</span>
   </div>
@@ -224,7 +224,7 @@ input,select{font:16px var(--sans);color:var(--fg);background:var(--bg);border:1
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const APP_VERSION='2026.11.09-3';
+const APP_VERSION='2026.11.09-4';
 /* ---------- hjælpere ---------- */
 const $=id=>document.getElementById(id);
 const pad=n=>String(n).padStart(2,'0');
@@ -269,7 +269,7 @@ const DEFAULT_YEARS={
   2026:{kost:625,logi:268,loft:34400,kmHi:3.17,kmLo:1.59,prelim:''},
   2027:{kost:643,logi:268,loft:35400,kmHi:2.28,kmLo:1.14,prelim:'Km-satser og logi er 2026-niveau uden den midlertidige forhøjelse – ret, når Skatterådet har meldt 2027 ud.'}
 };
-function blank(){return{app:'toender-logbog',format:2,name:'',settings:null,years:JSON.parse(JSON.stringify(DEFAULT_YEARS)),trips:{},weeks:{},lastBackup:null,updated:null}}
+function blank(){return{app:'toender-logbog',format:3,name:'',settings:null,years:JSON.parse(JSON.stringify(DEFAULT_YEARS)),trips:{},weeks:{},lastBackup:null,updated:null}}
 function daysOf(s,e){const out=[];let d=new Date(s);d.setHours(0,0,0,0);const end=new Date(e);end.setHours(0,0,0,0);while(d<=end){out.push(ymd(d));d=addD(d,1)}return out}
 function normTrip(t){const fix=v=>{if(!v||typeof v!=='string')return v;if(v.length>16||/Z$/.test(v)){const d=new Date(v);return isNaN(d)?v:loc(d)}return v};
   const o={...t,start:fix(t.start),end:fix(t.end)};if(!o.kind)o.kind='manuel';if(!o.transport)o.transport='bil';
@@ -282,8 +282,10 @@ function migrate(d){const o=blank();if(!d||typeof d!=='object')return o;
   if(d.years)for(const y in d.years){const r={...d.years[y]};delete r.year;if(r.taxPct!=null&&o.settings&&o.settings.taxPct==null)o.settings.taxPct=r.taxPct;delete r.taxPct;o.years[y]=r}
   const tl=Array.isArray(d.trips)?d.trips:Object.entries(d.trips||{}).map(([id,t])=>({id,...t}));
   tl.forEach(t=>{if(!t.id)t.id=uid();o.trips[t.id]=normTrip(t)});
-  o.weeks={...(d.weeks||{})};return o}
-let D;try{const raw=localStorage.getItem(KEY);D=raw?migrate(JSON.parse(raw)):blank()}catch(e){D=blank()}
+  o.weeks={...(d.weeks||{})};
+  if(!(d.format>=3))for(const k in o.weeks)if(o.weeks[k]&&o.weeks[k].reason==='Ferie')o.weeks[k]={...o.weeks[k],reason:'Ingen tur'};
+  return o}
+let D,oldFormat=false;try{const raw=localStorage.getItem(KEY);if(raw){const j=JSON.parse(raw);oldFormat=!(j.format>=3);D=migrate(j)}else D=blank()}catch(e){D=blank()}
 let storageOk=true,saveT=null;
 function writeNow(){clearTimeout(saveT);saveT=null;try{D.updated=loc(now());localStorage.setItem(KEY,JSON.stringify(D));storageOk=true;setSaved('Gemt')}catch(e){storageOk=false;setSaved('Kunne ikke gemme på enheden',true)}}
 function commit(){clearTimeout(saveT);saveT=setTimeout(writeNow,250);setSaved('Gemmer …');render()}
@@ -307,7 +309,7 @@ let ALL=[];
 function buildAll(){
   const TR=Object.values(D.trips).filter(t=>t.start&&t.end);ALL=TR.map(t=>({...t}));
   const s0=S();if(!s0||!s0.startDate)return ALL.sort((a,b)=>P(a.start)-P(b.start));
-  const start=P(s0.startDate+'T00:00'),endLim=s0.endDate?P(s0.endDate+'T23:59'):null;
+  const st0=P(s0.startDate+'T00:00'),tf=s0.tplFrom?P(s0.tplFrom+'T00:00'):null,start=tf&&tf>st0?tf:st0,endLim=s0.endDate?P(s0.endDate+'T23:59'):null;
   const horizon=new Date(Math.max(view,now().getFullYear())+1,0,7);
   for(let m=mon(start);m<horizon&&(!endLim||m<=endLim);m=addD(m,7)){
     const v=stdTrip(m);if(P(v.start)<start||(endLim&&P(v.start)>endLim))continue;
@@ -433,7 +435,7 @@ function weekRow(m,idp){
     else if(k.includes('manuel'))tag='<span class="tag edit">Manuel</span>';
     else tag='<span class="tag std">Standard</span>';
     if(trips.every(t=>!calc(t).done))tag+=' <span class="tag plan">plan</span>'}
-  else if(off)tag=`<span class="tag">${esc(D.weeks[iw.key].reason||'Ferie')}</span>`;
+  else if(off)tag=`<span class="tag">${esc(D.weeks[iw.key].reason||'Ingen tur')}</span>`;
   let cells='';
   for(let i=0;i<7;i++){const d=addD(m,i),k=ymd(d),hol=holName(d);
     const tr=trips.find(t=>daysOf(P(t.start),P(t.end)).includes(k));let cls='dy',extra='';
@@ -505,13 +507,14 @@ function openWeek(m){
   let h=head(`Uge ${iw.w} · ${dshort(m)} – ${dshort(addD(m,6))}`);
   if(trips.length>1){h+='<div class="note">Der er flere ture i ugen. Vælg en:</div>';
     trips.forEach((t,i)=>h+=`<button class="btn block" data-i="${i}">${DOWL[dow(P(t.start))]} ${dshort(P(t.start))} ${hm(P(t.start))} → ${DOWL[dow(P(t.end))].toLowerCase()} ${dshort(P(t.end))} ${hm(P(t.end))}</button>`)}
-  else if(off)h+=`<div class="note">Ugen er markeret som <b>${esc(D.weeks[iw.key].reason||'ferie')}</b>, så der lægges ingen standardtur ind.</div><button class="btn primary block" id="xRestore">Gendan standardtur</button>`;
+  else if(off)h+=`<div class="note">Ugen er markeret som <b>${esc((D.weeks[iw.key].reason||'ingen tur').toLowerCase())}</b>, så der lægges ingen standardtur ind.</div><button class="btn primary block" id="xRestore">Gendan standardtur</button>`;
   else h+=`<div class="note">${S()&&addD(m,7)<=P(S().startDate+'T00:00')?'Ugen ligger før projektstart.':'Ingen tur i denne uge.'}</div>`;
-  h+=`<div class="actions"><button class="btn" id="xNew">+ Tilføj tur i ugen</button>${!off&&!trips.length?'<button class="btn" id="xOff">Markér som ferie</button>':''}<button class="btn" id="xClose">Færdig</button></div>`;
+  h+=`<div class="actions"><button class="btn" id="xNew">+ Tilføj tur i ugen</button>${!off&&!trips.length?'<button class="btn" id="xOff">Ingen tur</button><button class="btn" id="xFer">Ferie</button>':''}<button class="btn" id="xClose">Færdig</button></div>`;
   openSheet(h);
   $('panel').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>openTrip(trips[+b.dataset.i],iw.key));
   if($('xRestore'))$('xRestore').onclick=()=>{delete D.weeks[iw.key];commit();closeSheet();toast('Standardturen er tilbage')};
-  if($('xOff'))$('xOff').onclick=()=>{D.weeks[iw.key]={off:true,reason:'Ferie'};commit();closeSheet();toast('Ugen er markeret som ferie')};
+  const mark=r=>{D.weeks[iw.key]={off:true,reason:r};commit();closeSheet();toast('Ugen er markeret: '+r.toLowerCase())};
+  if($('xOff'))$('xOff').onclick=()=>mark('Ingen tur');if($('xFer'))$('xFer').onclick=()=>mark('Ferie');
   $('xNew').onclick=()=>openTrip(newTrip(m),iw.key);
   $('xClose').onclick=closeSheet}
 function newTrip(m){const s0=S()||{},t=s0.tpl||{};
@@ -543,12 +546,13 @@ function openTrip(t,wkKey){
   $('mNone').onclick=()=>{daysOf(P(ed.start),P(ed.end)).forEach(k=>ed.meals[k]={bf:false,lu:false,di:false});drawMeals();changed()};
   drawMeals();drawCalc();drawActs()}
 function drawActs(){const isStd=ed.kind==='standard',saved=!ed.virtual&&!!ed.id&&!!D.trips[ed.id];
-  $('eActs').innerHTML=`${isStd?'<button class="btn" id="eOff">Ingen tur denne uge (ferie)</button>':''}
+  $('eActs').innerHTML=`${isStd?'<button class="btn" id="eOff">Ingen tur denne uge</button><button class="btn" id="eFer">Ferie</button>':''}
     ${isStd&&saved?'<button class="btn" id="eReset">Gendan standard</button>':''}
     ${!isStd&&saved?'<button class="btn danger" id="eDel">Slet tur</button>':''}
     <button class="btn primary" id="eDone">Færdig</button>`;
   $('eDone').onclick=closeSheet;
-  if($('eOff'))$('eOff').onclick=()=>{D.weeks[ed.wkKey]={off:true,reason:'Ferie'};if(D.trips[ed.id])delete D.trips[ed.id];commit();closeSheet();toast('Ugen er markeret som ferie')};
+  const mark=r=>{D.weeks[ed.wkKey]={off:true,reason:r};if(D.trips[ed.id])delete D.trips[ed.id];commit();closeSheet();toast('Ugen er markeret: '+r.toLowerCase())};
+  if($('eOff'))$('eOff').onclick=()=>mark('Ingen tur');if($('eFer'))$('eFer').onclick=()=>mark('Ferie');
   if($('eReset'))$('eReset').onclick=()=>{delete D.trips[ed.id];commit();closeSheet();toast('Standardturen er gendannet')};
   if($('eDel'))$('eDel').onclick=()=>{const b=$('eDel');if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tryk igen for at slette';return}delete D.trips[ed.id];commit();closeSheet();toast('Turen er slettet')}}
 function readEd(){ed.start=$('eS').value;ed.end=$('eE').value;ed.transport=$('eT').value;ed.kmOut=+$('eKo').value||0;ed.kmHome=+$('eKh').value||0;ed.logi=$('eLogi').checked;ed.note=$('eNote').value.trim()}
@@ -579,8 +583,8 @@ function drawCalc(){const el=$('eCalc');if(!ed.start||!ed.end){el.innerHTML='';r
 /* periode eller ferie */
 function openPeriod(){
   const nx=addD(mon(now()),7),s0=S(),t=s0.tpl||{};
-  openSheet(`<h3>Periode eller ferie</h3>
-   <div class="seg" role="group"><button type="button" id="pT1" aria-pressed="true">Ophold i Tønder</button><button type="button" id="pT2" aria-pressed="false">Ferie</button></div>
+  openSheet(`<h3>Periode, fravær eller ferie</h3>
+   <div class="seg" role="group"><button type="button" id="pT1" aria-pressed="true">Ophold i Tønder</button><button type="button" id="pT2" aria-pressed="false">Uger uden tur</button></div>
    <div id="pA">
      <div class="note" style="margin-bottom:10px">Til lange ophold, fx festivalugerne. Det bliver én samlet tur med én kørsel ud og hjem, og standardturene i de uger forsvinder.</div>
      <div class="row dt"><label for="pS">Hjemmefra<input type="datetime-local" id="pS" value="${loc(at(nx,t.outTime||'06:00'))}"></label>
@@ -592,10 +596,10 @@ function openPeriod(){
      <button class="btn primary block" id="pGo1" style="margin-top:12px">Opret perioden</button>
    </div>
    <div id="pB" hidden>
-     <div class="note" style="margin-bottom:10px">Alle uger med en mandag i perioden markeres som ferie, så standardturen ikke lægges ind.</div>
+     <div class="note" style="margin-bottom:10px">Alle uger med en mandag i perioden markeres, så standardturen ikke lægges ind.</div>
      <div class="row"><label for="fS">Fra<input type="date" id="fS" value="${ymd(nx)}"></label><label for="fE">Til<input type="date" id="fE" value="${ymd(addD(nx,6))}"></label></div>
-     <label for="fR" style="margin-top:10px">Årsag<input type="text" id="fR" value="Ferie" maxlength="40"></label>
-     <button class="btn primary block" id="pGo2" style="margin-top:12px">Markér som ferie</button>
+     <label for="fR" style="margin-top:10px">Årsag<select id="fR"><option>Ingen tur</option><option>Ferie</option><option>Sygdom</option><option>Hjemmearbejde</option></select></label>
+     <button class="btn primary block" id="pGo2" style="margin-top:12px">Markér ugerne</button>
    </div>
    <button class="btn" id="pClose">Annullér</button>`);
   const sw=n=>{$('pT1').setAttribute('aria-pressed',n===1);$('pT2').setAttribute('aria-pressed',n===2);$('pA').hidden=n!==1;$('pB').hidden=n!==2};
@@ -607,7 +611,7 @@ function openPeriod(){
   $('pGo2').onclick=()=>{const a=$('fS').value,b=$('fE').value;if(!a||!b||b<a)return toast('Slutdatoen skal ligge efter startdatoen');
     const keys=[];for(let m=mon(P(a+'T00:00'));m<=P(b+'T23:59');m=addD(m,7))if(m>=P(a+'T00:00'))keys.push(isoWeek(m).key);
     if(!keys.length)keys.push(isoWeek(P(a+'T00:00')).key);
-    const r=$('fR').value.trim()||'Ferie';keys.forEach(k=>D.weeks[k]={off:true,reason:r});commit();closeSheet();toast(`${keys.length} ${keys.length===1?'uge':'uger'} markeret som ${r.toLowerCase()}`)}}
+    const r=$('fR').value||'Ingen tur';keys.forEach(k=>D.weeks[k]={off:true,reason:r});commit();closeSheet();toast(`${keys.length} ${keys.length===1?'uge':'uger'} markeret som ${r.toLowerCase()}`)}}
 
 /* indstillinger og satser */
 function openSettings(){
@@ -625,6 +629,8 @@ function openSettings(){
      <label for="sEn">Projektslut (valgfri)<input type="date" id="sEn" value="${s.endDate||''}"></label>
      <label for="sKm">Km hver vej<input type="number" id="sKm" inputmode="numeric" value="${s.kmOneWay??''}"></label></div>
    <div class="note">Projektstart styrer også 12-måneders-grænsen for kostfradrag.</div>
+   <label for="sTf">Udfyld standardture fra (lad stå tom = fra projektstart)<input type="date" id="sTf" value="${s.tplFrom||''}"></label>
+   <div class="note">Brug den, hvis du kun har været i Tønder af og til i starten. Uger før datoen er tomme, og du lægger selv de ture ind, du havde.</div>
    <h4>Standardtur hver uge</h4>
    <div class="row"><label for="sOd">Kører ud<select id="sOd">${opt(t.outDow||1)}</select></label><label for="sOt">Kl.<input type="time" id="sOt" value="${t.outTime||'06:00'}"></label></div>
    <div class="row"><label for="sHd">Hjemme igen<select id="sHd">${opt(t.homeDow||3)}</select></label><label for="sHt">Kl.<input type="time" id="sHt" value="${t.homeTime||'17:00'}"></label></div>
@@ -637,12 +643,12 @@ function openSettings(){
    <div class="ytab"><table><thead><tr><th>År</th><th>Kost</th><th>Logi</th><th>Loft</th><th>Km 25–120</th><th>Km &gt;120</th><th>Bemærkning</th></tr></thead>
      <tbody id="yBody">${Object.keys(D.years).sort().map(yrow).join('')}</tbody></table></div>
    <div class="actions"><button class="btn" id="yAdd">+ Tilføj år</button><button class="btn primary" id="sClose">Færdig</button></div>`);
-  const saveS=()=>{const ns={...s,startDate:$('sSt').value,endDate:$('sEn').value,kmOneWay:+$('sKm').value||0,taxPct:parseFloat(String($('sTax').value).replace(',','.'))||0,
+  const saveS=()=>{const ns={...s,startDate:$('sSt').value,endDate:$('sEn').value,tplFrom:$('sTf').value,kmOneWay:+$('sKm').value||0,taxPct:parseFloat(String($('sTax').value).replace(',','.'))||0,
       tpl:{outDow:+$('sOd').value,outTime:$('sOt').value,homeDow:+$('sHd').value,homeTime:$('sHt').value,transport:$('sTr').value,meals:{bf:$('sBf').checked,lu:$('sLu').checked,di:$('sDi').checked},logi:$('sLo').checked}};
     if(!ns.startDate)return setSaved('Ikke gemt: angiv projektstart',true);
     if(ns.tpl.homeDow<ns.tpl.outDow||(ns.tpl.homeDow===ns.tpl.outDow&&ns.tpl.homeTime<=ns.tpl.outTime))return setSaved('Ikke gemt: hjemkomst skal ligge efter afrejse',true);
     D.name=$('sNm').value.trim();D.settings=ns;commit()};
-  $('panel').querySelectorAll('#sNm,#sTax,#sSt,#sEn,#sKm,#sOt,#sHt').forEach(i=>i.addEventListener('input',saveS));
+  $('panel').querySelectorAll('#sNm,#sTax,#sSt,#sEn,#sTf,#sKm,#sOt,#sHt').forEach(i=>i.addEventListener('input',saveS));
   $('panel').querySelectorAll('#sOd,#sHd,#sTr,#sBf,#sLu,#sDi,#sLo').forEach(i=>i.addEventListener('change',saveS));
   const bindY=()=>$('yBody').querySelectorAll('input').forEach(i=>{if(i.dataset.b)return;i.dataset.b=1;i.addEventListener('input',()=>{const y=i.closest('tr').dataset.y,g=f=>parseFloat(String($(`y${y}_${f}`).value).replace(',','.'));
     const r={};F.forEach(f=>r[f]=g(f));if(['kost','loft','kmHi','kmLo'].some(f=>isNaN(r[f])))return setSaved(`Ikke gemt: udfyld kost, loft og km-satser for ${y}`,true);
@@ -666,7 +672,7 @@ function rows(){const h=['Navn','Uge','Type','Transport','Dato ud','Kl. ud','Dat
 const slug=()=>(D.name||'logbog').toLowerCase().replace(/[^a-z0-9æøå]+/g,'-');
 $('bCsv').onclick=()=>deliver(`toender-logbog-${slug()}-${view}.csv`,'﻿'+rows().map(r=>r.join(';')).join('\r\n'),'text/csv');
 $('bCopy').onclick=()=>{navigator.clipboard.writeText(rows().map(r=>r.join('\t')).join('\n')).then(()=>toast('Kopieret – sæt ind i Excel')).catch(()=>toast('Browseren tillod ikke kopiering'))};
-async function backup(){if(saveT)writeNow();const out={...D,app:'toender-logbog',format:2,saved:loc(now()),appVersion:APP_VERSION};
+async function backup(){if(saveT)writeNow();const out={...D,app:'toender-logbog',format:3,saved:loc(now()),appVersion:APP_VERSION};
   if(await deliver(`toender-logbog-${slug()}-backup-${ymd(now())}.json`,JSON.stringify(out,null,1),'application/json')){D.lastBackup=loc(now());commit();toast('Backup er gemt')}}
 $('bBak').onclick=backup;$('bakNow').onclick=backup;
 let pendingImport=null;
@@ -688,6 +694,7 @@ $('ver').textContent=APP_VERSION;
 if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 setInterval(()=>{if($('sheet').hidden)render()},5*60*1000);
 render();
+if(oldFormat)writeNow();
 </script>
 </body>
 </html>
