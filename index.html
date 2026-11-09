@@ -88,9 +88,19 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--mute
 
 /* kalender */
 .cal{display:flex;flex-direction:column;gap:6px}
-.mh{font-size:13px;font-weight:700;margin:12px 0 2px;display:flex;justify-content:space-between;align-items:baseline}
-.mh:first-child{margin-top:0}
-.mh .num{font-weight:500;color:var(--muted);font-size:12px}
+.mg{display:flex;flex-direction:column;gap:6px}
+.mh{font:600 15px var(--sans);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;width:100%;text-align:left}
+.mh .num{font:500 13px var(--mono);color:var(--muted);display:flex;align-items:center;gap:10px}
+.mh .chev{display:inline-block;font:400 18px var(--sans);color:var(--muted);transition:transform .15s}
+.mg.open .mh{border-color:var(--fg)}
+.mg.open .chev{transform:rotate(90deg)}
+.mg.cur .mh>span:first-child::after{content:"nu";font:600 11px var(--sans);background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:1px 7px;margin-left:8px;vertical-align:2px}
+.mweeks{display:flex;flex-direction:column;gap:6px;padding-bottom:6px}
+input{-webkit-appearance:none;appearance:none;min-height:44px;line-height:1.25}
+input[type=checkbox]{-webkit-appearance:auto;appearance:auto;min-height:0}
+input[type=date],input[type=time],input[type=datetime-local]{display:block;text-align:left}
+input::-webkit-date-and-time-value{text-align:left}
+select{min-height:44px}
 .wk{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 10px 10px;display:flex;flex-direction:column;gap:6px;cursor:pointer;text-align:left;color:inherit;font:inherit;width:100%}
 .wk.now{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .wk.out{opacity:.55}
@@ -198,7 +208,7 @@ input,select{font:16px var(--sans);color:var(--fg);background:var(--bg);border:1
       <button class="btn" id="bCsv">CSV til årsopgørelsen</button>
       <button class="btn" id="bCopy">Kopiér som tabel</button>
       <button class="btn" id="bBak">Gem backup</button>
-      <label class="btn" for="bRes" style="flex-direction:row;color:var(--fg);font-size:14px">Indlæs backup<input type="file" id="bRes" accept=".json,application/json"></label>
+      <label class="btn" for="bRes" style="flex-direction:row;color:var(--fg);font-size:14px">Indlæs backup<input type="file" id="bRes" accept=".json,application/json" hidden></label>
     </div>
     <p class="saved" id="lastBak"></p>
   </section>
@@ -214,7 +224,7 @@ input,select{font:16px var(--sans);color:var(--fg);background:var(--bg);border:1
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const APP_VERSION='2026.11.09-2';
+const APP_VERSION='2026.11.09-3';
 /* ---------- hjælpere ---------- */
 const $=id=>document.getElementById(id);
 const pad=n=>String(n).padStart(2,'0');
@@ -344,8 +354,8 @@ function renderDash(){
     el.innerHTML=`<div class="onb"><div><div class="hero"><div><div class="k">Kom i gang</div></div></div>
       <p class="note">Skriv dit navn, hvornår projektet startede, og hvor langt du har til Tønder. Kalenderen fyldes så ud med en standardtur mandag–onsdag, som du kan rette bagefter.</p></div>
       <label for="oName">Navn<input id="oName" type="text" autocomplete="name" value="${esc(D.name)}"></label>
-      <div class="row"><label for="oStart">Projektstart<input id="oStart" type="date" value="${ymd(mon(now()))}"></label>
-        <label for="oKm">Km hver vej<input id="oKm" type="number" inputmode="numeric" value="180"></label></div>
+      <label for="oStart">Projektstart (første uge i Tønder)<input id="oStart" type="date" value="${ymd(mon(now()))}"></label>
+      <label for="oKm">Km hver vej mellem hjem og Tønder<input id="oKm" type="number" inputmode="numeric" value="180"></label>
       <button class="btn primary block" id="oGo">Start logbogen</button>
       <p class="note">Har du en backup? Brug “Indlæs backup” længere nede.</p></div>`;
     $('oGo').onclick=()=>{const n=$('oName').value.trim(),st=$('oStart').value;if(!st)return toast('Vælg en projektstart');
@@ -408,7 +418,7 @@ function drawChart(sm){
 /* ---------- kalender ---------- */
 function renderYears(){const ys=new Set([now().getFullYear(),...Object.keys(D.years).map(Number),...Object.values(D.trips).map(t=>P(t.start).getFullYear())]);
   if(S()&&S().startDate)ys.add(+S().startDate.slice(0,4));
-  $('years').innerHTML='';[...ys].filter(y=>!isNaN(y)).sort().forEach(y=>{const b=document.createElement('button');b.className='chip';b.textContent=y;b.setAttribute('aria-pressed',y===view);b.onclick=()=>{view=y;scrolled=false;render()};$('years').append(b)})}
+  $('years').innerHTML='';[...ys].filter(y=>!isNaN(y)).sort().forEach(y=>{const b=document.createElement('button');b.className='chip';b.textContent=y;b.setAttribute('aria-pressed',y===view);b.onclick=()=>{view=y;scrolled=false;openM=null;render()};$('years').append(b)})}
 function tripsInWeek(m){const m2=addD(m,7);return ALL.filter(t=>P(t.start)<m2&&P(t.end)>m)}
 function weekRow(m,idp){
   const s0=S(),today=ymd(now()),thisWk=isoWeek(now()).key;
@@ -438,17 +448,28 @@ function weekRow(m,idp){
     <div class="days">${cells}</div></button>`}
 let monthCache={};
 function monthSum(y,mi){if(!monthCache[y])monthCache[y]=yearSummary(y).months;const m=monthCache[y][mi];return m.done+m.plan}
+let openM=null; // 'ingen' = alle lukket, ellers 'år-måned'
 function renderCal(){
   const el=$('cal');$('calTitle').textContent='Kalender '+view;
   if(!S()){el.innerHTML='';return}
-  let h='',lastM=-1;const thisWk=isoWeek(now()).key;
+  const groups=[];
   for(let m=mon(new Date(view,0,1));m<=new Date(view,11,31);m=addD(m,7)){
     const mm=m.getFullYear()<view?0:m.getMonth();
-    if(mm!==lastM){const ms=monthSum(view,mm);h+=`<div class="mh"><span>${MONL[mm]}</span><span class="num">${ms?kr0(ms)+' kr.':''}</span></div>`;lastM=mm}
-    h+=weekRow(m,'w-')}
+    if(!groups.length||groups[groups.length-1].mm!==mm)groups.push({mm,weeks:[]});
+    groups[groups.length-1].weeks.push(m)}
+  const curKey=now().getFullYear()+'-'+now().getMonth(),open=openM===null?(view===now().getFullYear()?curKey:'ingen'):openM;
+  let h='';
+  const st=P(S().startDate+'T00:00');
+  const shown=groups.filter(g=>new Date(view,g.mm+1,1)>st||g.weeks.some(m=>tripsInWeek(m).length));
+  if(!shown.length)h='<div class="note">Projektet starter først senere – der er ingen uger at vise i '+view+'.</div>';
+  shown.forEach(g=>{const key=view+'-'+g.mm,isOpen=open===key,ms=monthSum(view,g.mm);
+    const nTrips=new Set(g.weeks.flatMap(m=>tripsInWeek(m).filter(t=>P(t.start).getMonth()===g.mm&&P(t.start).getFullYear()===view).map(t=>t.id))).size;
+    h+=`<div class="mg${isOpen?' open':''}${key===curKey?' cur':''}"><button class="mh" data-k="${key}" aria-expanded="${isOpen}"><span>${MONL[g.mm]}</span><span class="num">${nTrips?nTrips+' '+(nTrips===1?'tur':'ture')+' · ':''}${ms?kr0(ms)+' kr.':'–'}<span class="chev" aria-hidden="true">›</span></span></button>${isOpen?`<div class="mweeks">${g.weeks.map(m=>weekRow(m,'w-')).join('')}</div>`:''}</div>`});
   el.innerHTML=h;
+  el.querySelectorAll('.mh').forEach(b=>b.onclick=()=>{const k=b.dataset.k;openM=open===k?'ingen':k;renderCal();
+    if(openM===k){const n=el.querySelector(`.mh[data-k="${k}"]`);if(n&&n.getBoundingClientRect().top<0)n.scrollIntoView({block:'start'})}});
   el.querySelectorAll('.wk').forEach(b=>b.onclick=()=>openWeek(P(b.dataset.m+'T00:00')));
-  }
+}
 let fw=mon(now());
 function renderFocus(){const el=$('focus');if(!S()){el.innerHTML='';return}
   const iw=isoWeek(fw),cur=iw.key===isoWeek(now()).key,trips=tripsInWeek(fw);
